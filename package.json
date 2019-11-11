@@ -4,7 +4,7 @@
   "description": "一个通用的前端脚手架",
   "main": "index.js",
   "scripts": {
-    "start": "",
+    "start": "node bin/sag.js",
     "dev": "rollup -wc",
     "test": "jest"
   },
@@ -21,7 +21,9 @@
     "dayjs": "^1.8.17",
     "eslint-config-sagas": "^0.0.6",
     "jest": "^24.9.0",
+    "ora": "^4.0.2",
     "rollup": "^1.26.5",
+    "rollup-plugin-bin": "^1.0.0",
     "rollup-plugin-eslint": "^7.0.0",
     "rollup-plugin-json": "^4.0.0",
     "rollup-plugin-typescript2": "^0.25.2",

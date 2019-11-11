@@ -14,47 +14,27 @@ class Cli {
   static _cli?: Cli
 
   static get () {
-    if (!this._cli) {
-      this._cli = new this()
-      console.log('没有')
-    }
+    if (!this._cli) this._cli = new this()
     return this._cli
   }
   
   /**
-   * 开始执行
+   * help
    *
    * @memberof Cli
    */
-  run () {
+  help () {
+    console.log(`Usage: sag <command> [options]
 
-  }
-
-  /**
-   * 检查版本是否最新
-   *
-   * @memberof Cli
-   */
-  checkVersion () {
-    return false
-  }
-
-  /**
-   * 下载模板
-   *
-   * @memberof Cli
-   */
-  downloadTemplate () {
-
-  }
-
-  /**
-   * 生成目录
-   *
-   * @memberof Cli
-   */
-  generator () {
-
+      Options:
+        -v, --version                              output the version number
+        -h, --help                                 output usage information
+      
+      Commands:
+        create [options] <app-name>                create a new project by this app-name
+        add [options] <plugin> [pluginOptions]     install a sag-template
+      
+        Run sag <command> --help for detailed usage of given command.`)
   }
 }
 

@@ -4,5 +4,5 @@ import {
 import {
   log,
 } from './Util'
-
-log(green('asdasd'))
+import Cli from './Cli'
+import ora from 'ora'
