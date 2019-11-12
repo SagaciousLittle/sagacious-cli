@@ -4,7 +4,7 @@
   "description": "一个通用的前端脚手架",
   "main": "index.js",
   "scripts": {
-    "start": "node bin/sag.js",
+    "start": "node bin/sag",
     "dev": "rollup -wc",
     "test": "jest"
   },
@@ -14,21 +14,28 @@
   "author": "SagaciousLittle",
   "license": "ISC",
   "dependencies": {
+    "@types/figlet": "^1.2.0",
+    "@types/inquirer": "^6.5.0",
     "@types/jest": "^24.0.22",
     "@types/node": "^12.12.7",
+    "@types/yargs": "^13.0.3",
     "@typescript-eslint/parser": "^2.6.1",
     "chalk": "^3.0.0",
     "dayjs": "^1.8.17",
     "eslint-config-sagas": "^0.0.6",
+    "figlet": "^1.2.4",
+    "inquirer": "^7.0.0",
     "jest": "^24.9.0",
     "ora": "^4.0.2",
     "rollup": "^1.26.5",
     "rollup-plugin-bin": "^1.0.0",
+    "rollup-plugin-delete": "^1.1.0",
     "rollup-plugin-eslint": "^7.0.0",
     "rollup-plugin-json": "^4.0.0",
     "rollup-plugin-typescript2": "^0.25.2",
     "ts-jest": "^24.1.0",
     "ts-node": "^8.5.0",
-    "typescript": "^3.7.2"
+    "typescript": "^3.7.2",
+    "yargs": "^14.2.0"
   }
 }
