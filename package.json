@@ -9,23 +9,27 @@
     "test": "jest"
   },
   "bin": {
-    "sag": "bin/sag.js"
+    "sag": "bin/sag"
   },
   "author": "SagaciousLittle",
   "license": "ISC",
   "dependencies": {
+    "@sagacious/fs-wrapper": "^0.0.3",
     "@types/figlet": "^1.2.0",
     "@types/inquirer": "^6.5.0",
     "@types/jest": "^24.0.22",
+    "@types/lodash": "^4.14.147",
     "@types/node": "^12.12.7",
     "@types/yargs": "^13.0.3",
     "@typescript-eslint/parser": "^2.6.1",
     "chalk": "^3.0.0",
-    "dayjs": "^1.8.17",
+    "del": "^5.1.0",
     "eslint-config-sagas": "^0.0.6",
+    "execa": "^3.3.0",
     "figlet": "^1.2.4",
     "inquirer": "^7.0.0",
     "jest": "^24.9.0",
+    "lodash": "^4.17.15",
     "ora": "^4.0.2",
     "rollup": "^1.26.5",
     "rollup-plugin-bin": "^1.0.0",
