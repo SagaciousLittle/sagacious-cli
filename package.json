@@ -14,7 +14,7 @@
   "author": "SagaciousLittle",
   "license": "ISC",
   "dependencies": {
-    "@sagacious/fs-wrapper": "^0.0.3",
+    "@sagacious/fs-wrapper": "^0.0.4",
     "@types/figlet": "^1.2.0",
     "@types/inquirer": "^6.5.0",
     "@types/jest": "^24.0.22",
@@ -23,6 +23,7 @@
     "@types/yargs": "^13.0.3",
     "@typescript-eslint/parser": "^2.6.1",
     "chalk": "^3.0.0",
+    "dayjs": "^1.8.17",
     "del": "^5.1.0",
     "eslint-config-sagas": "^0.0.6",
     "execa": "^3.3.0",

@@ -49,18 +49,26 @@ class Cli {
       .command(['add', 'a'], 'install the sag template locally', _yargs => {
         console.log(_yargs.argv)
       })
-      .parse()
-    this._args = _
+      .showHelpOnFail(true)
+    const _args = _.parse()
+    if (_args._.length === 0) _.showHelp()
+    this._args = _args
   }
   async create (appName?: string) {
     console.log(blueBright(`Sag CLI v${this.version}`))
-    if (!appName) appName = await inquirer.prompt([
+    const dirName = process.cwd()
+      .split('\\')
+      .pop()
+    let res = { appName }
+    if (!appName) res = await inquirer.prompt([
       {
         type: 'input',
         name: 'appName',
-        message: `✨  ${greenBright('please enter your project name')}`,
+        message: `✨  ${greenBright(`please enter your project name (${dirName})`)}`,
       },
     ])
+    if (!res.appName || !res.appName.trim()) res.appName = dirName
+    console.log(res.appName)
     inquirer
       .prompt([
         {
