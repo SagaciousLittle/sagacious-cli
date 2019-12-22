@@ -8,6 +8,15 @@ import {
   blueBright,
 } from 'chalk'
 import yargs from 'yargs'
+import TemplateManager, {
+  AddOption,
+} from './TemplateManager'
+import Ora from './Ora'
+import {
+  isDir,
+  isGitRepo,
+  isNpm,
+} from './Util'
 
 
 /**
@@ -33,6 +42,8 @@ class Cli {
     _: string[]
   } = { $0: '', _: [] }
 
+  templateManager = new TemplateManager()
+
   run () {
     const _ = yargs
       .locale('en')
@@ -47,7 +58,37 @@ class Cli {
         this.create(appName)
       })
       .command(['add', 'a'], 'install the sag template locally', _yargs => {
-        console.log(_yargs.argv)
+        const templates = _yargs.argv._.slice(1)
+        const options = templates.reduce((res: AddOption[], path) => {
+          if (isDir(path)) {
+            res.push({
+              type: 'file',
+              path,
+            })
+          }
+          if (isGitRepo(path)) {
+            res.push({
+              type: 'git',
+              path,
+            })
+          }
+          if (isNpm(path)) {
+            res.push({
+              type: 'npm',
+              name: path,
+            })
+          }
+          return res
+        }, [])
+        this.templateManager.addMore(options)
+      })
+      .command(['clean'], 'clean your template dir', async _yargs => {
+        const ora = Ora('start clear')
+          .start()
+        this.templateManager.clear(true)
+        ora.text = 'clean over'
+        ora.succeed()
+        process.exit()
       })
       .showHelpOnFail(true)
     const _args = _.parse()
