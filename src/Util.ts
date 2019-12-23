@@ -75,3 +75,11 @@ export function isNpm (name: string) {
     return false
   }
 }
+
+export async function PromiseQuene (ps: Array<() => Promise<any>>) {
+  let i = 0
+  while (i < ps.length) {
+    await ps[i]()
+    i++
+  }
+}

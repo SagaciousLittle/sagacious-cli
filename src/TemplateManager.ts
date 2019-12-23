@@ -5,6 +5,10 @@ import del from 'del'
 import Conf from 'conf'
 import Git from 'simple-git/promise'
 import execa from 'execa'
+import Ora from './Ora'
+import {
+  PromiseQuene,
+} from './Util'
 
 interface NpmAddOption {
   type: 'npm'
@@ -56,8 +60,11 @@ export default class TemplateManager {
       return this.addFile(option)
     }
   }
-  addMore (options: AddOption[]) {
-    options.forEach(o => this.add(o))
+  async addMore (options: AddOption[]) {
+    PromiseQuene(options.map(o => () => this.add(o) || Promise.resolve()))
+      .then(() => {
+        process.exit()
+      })
   }
   async addGit ({ name, path }: GitAddOption) {
     const {
@@ -79,9 +86,17 @@ export default class TemplateManager {
     }
   }
   addNpm (option: NpmAddOption) {
-    const targetDir = `${this.TEMPLATE_HOME}/npm/${option.name}`
+    const ora = Ora(`开始添加模版：${option.name}`)
+      .start()
+    const targetDir = `${this.TEMPLATE_HOME}/npm/te-${option.name}`
+    fs.mkdirpSync(targetDir)
     process.chdir(targetDir)
-    execa.sync('npm', ['init', '-y'])
+    return execa('npm', ['init', '-y'])
+      .then(() => execa('npm', ['install', option.name]))
+      .then(() => {
+        ora.text = `模版${option.name}添加完成`
+        ora.succeed()
+      })
   }
   addFile (option: FileAddOption) {
     console.log(option)
