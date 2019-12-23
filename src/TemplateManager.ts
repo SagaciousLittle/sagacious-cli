@@ -81,6 +81,6 @@ export default class TemplateManager {
 
   }
   addFile (option: FileAddOption) {
-
+    console.log(option)
   }
 }

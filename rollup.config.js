@@ -45,6 +45,10 @@ module.exports = [
       }),
       bin(),
     ],
+    onwarn (info, warn) {
+      if (info.code === 'UNRESOLVED_IMPORT') return
+      warn(info)
+    },
   },
   ...libOptions,
 ]

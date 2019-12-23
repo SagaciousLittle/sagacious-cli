@@ -65,14 +65,12 @@ class Cli {
               type: 'file',
               path,
             })
-          }
-          if (isGitRepo(path)) {
+          } else if (isGitRepo(path)) {
             res.push({
               type: 'git',
               path,
             })
-          }
-          if (isNpm(path)) {
+          } else if (isNpm(path)) {
             res.push({
               type: 'npm',
               name: path,
