@@ -4,6 +4,7 @@ import _ from 'lodash'
 import del from 'del'
 import Conf from 'conf'
 import Git from 'simple-git/promise'
+import execa from 'execa'
 
 interface NpmAddOption {
   type: 'npm'
@@ -78,7 +79,9 @@ export default class TemplateManager {
     }
   }
   addNpm (option: NpmAddOption) {
-
+    const targetDir = `${this.TEMPLATE_HOME}/npm/${option.name}`
+    process.chdir(targetDir)
+    execa.sync('npm', ['init', '-y'])
   }
   addFile (option: FileAddOption) {
     console.log(option)
