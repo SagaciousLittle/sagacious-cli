@@ -1,6 +1,6 @@
 const { eslint } = require('rollup-plugin-eslint')
 const json = require('rollup-plugin-json')
-const ts = require('rollup-plugin-typescript2')
+const ts = require('@rollup/plugin-typescript')
 const bin = require('rollup-plugin-bin')
 const del = require('rollup-plugin-delete')
 const fs = require('@sagacious/fs-wrapper')
@@ -22,7 +22,9 @@ const libOptions = fs.readDirProSync(path.resolve(__dirname, './src'), {
       eslint({
         fix: true,
       }),
-      ts(),
+      ts({
+        module: 'CommonJS',
+      }),
     ],
   }))
 
@@ -39,11 +41,7 @@ module.exports = [
       }),
       json(),
       ts({
-        tsconfigOverride: {
-          compilerOptions: {
-            declaration: false,
-          },
-        },
+        declaration: false,
       }),
       bin(),
     ],
