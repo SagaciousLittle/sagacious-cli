@@ -16,6 +16,7 @@ import {
   isDir,
   isGitRepo,
   isNpm,
+  PromiseQuene,
 } from './Util'
 
 
@@ -58,32 +59,68 @@ class Cli {
         this.create(appName)
       })
       .command(['add', 'a'], 'install the sag template locally', _yargs => {
+        const ora = Ora('开始分析模板')
+          .start()
         const templates = _yargs.argv._.slice(1)
-        const options = templates.reduce((res: AddOption[], path) => {
-          if (isDir(path)) {
-            res.push({
-              type: 'file',
-              path,
+        PromiseQuene<AddOption>(templates.map(template => () => new Promise(r => {
+          let i = 0
+          isGitRepo(template)
+            .then(f => {
+              if (f) r({
+                type: 'git',
+                path: template,
+              })
             })
-          } else if (isGitRepo(path)) {
-            res.push({
-              type: 'git',
-              path,
+            .catch(e => e)
+            .finally(() => {
+              if (++i === 3) r({
+                disabled: true,
+                template,
+              })
             })
-          } else if (isNpm(path)) {
-            res.push({
-              type: 'npm',
-              name: path,
+          isDir(template)
+            .then(f => {
+              if (f) r({
+                type: 'file',
+                path: template,
+              })
             })
-          }
-          return res
-        }, [])
-        this.templateManager.addMore(options)
+            .catch(e => e)
+            .finally(() => {
+              if (++i === 3) r({
+                disabled: true,
+                template,
+              })
+            })
+          isNpm(template)
+            .then(f => {
+              if (f) r({
+                type: 'npm',
+                name: template,
+              })
+            })
+            .catch(e => e)
+            .finally(() => {
+              if (++i === 3) r({
+                disabled: true,
+                name: template,
+              })
+            })
+        })))
+          .then(options => {
+            ora.succeed('模板分析完成')
+            this.templateManager.addMore(options.filter(o => {
+              if (o.disabled) Ora(`未知模板类型：${o.name}`)
+                .start()
+                .warn()
+              return !o.disabled
+            }))
+          })
       })
       .command(['clean'], 'clean your template dir', async _yargs => {
         const ora = Ora('start clear')
           .start()
-        this.templateManager.clear(true)
+        await this.templateManager.clear()
         ora.text = 'clean over'
         ora.succeed()
         process.exit()

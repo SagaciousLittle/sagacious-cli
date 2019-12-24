@@ -10,22 +10,25 @@ import {
   PromiseQuene,
 } from './Util'
 
-interface NpmAddOption {
-  type: 'npm'
+interface baseAddOption {
+  type: string
   name: string
+  disabled?: boolean
+}
+
+interface NpmAddOption extends baseAddOption {
+  type: 'npm'
   version?: string
 }
 
-interface GitAddOption {
+interface GitAddOption extends baseAddOption {
   type: 'git'
   path: string
-  name?: string
 }
 
-interface FileAddOption {
+interface FileAddOption extends baseAddOption {
   type: 'file'
   path: string
-  name?: string
 }
 
 export type AddOption = NpmAddOption | GitAddOption | FileAddOption
@@ -42,10 +45,7 @@ export default class TemplateManager {
   initDefault () {
     
   }
-  clear (sync: boolean = false) {
-    if (sync) return del.sync(this.TEMPLATE_HOME, {
-      force: true,
-    })
+  clear () {
     return del(this.TEMPLATE_HOME, {
       force: true,
     })

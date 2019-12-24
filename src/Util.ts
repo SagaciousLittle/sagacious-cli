@@ -4,8 +4,10 @@ import {
   gray,
   cyanBright,
 } from 'chalk'
-import execa from 'execa'
-import fs from 'fs'
+import execa, {
+  ExecaReturnValue, 
+} from 'execa'
+import fs from 'fs-extra'
 
 export const LOGO = 'sagacious'
 
@@ -36,11 +38,11 @@ export function printLogo () {
  * @param {string} path
  * @returns
  */
-export function isGitRepo (path: string) {
+export function isGitRepo (path: string): Promise<any> {
   try {
-    return execa.sync('git', ['remote', 'show', path]).exitCode === 0
+    return execa('git', ['remote', 'show', path])
   } catch (e) {
-    return false
+    return Promise.resolve(false)
   }
 }
 
@@ -51,12 +53,11 @@ export function isGitRepo (path: string) {
  * @param {string} path
  * @returns
  */
-export function isDir (path: string) {
+export function isDir (path: string): Promise<any> {
   try {
-    fs.readdirSync(path)
-    return true
+    return fs.readdir(path)
   } catch (e) {
-    return false
+    return Promise.resolve(false)
   }
 }
 
@@ -67,19 +68,20 @@ export function isDir (path: string) {
  * @param {string} name
  * @returns
  */
-export function isNpm (name: string) {
+export function isNpm (name: string): Promise<any> {
   try {
-    execa.sync('npm', ['view', name])
-    return true
+    return execa('npm', ['view', name])
   } catch (e) {
-    return false
+    return Promise.resolve(false)
   }
 }
 
-export async function PromiseQuene (ps: Array<() => Promise<any>>) {
+export async function PromiseQuene<T> (ps: Array<() => Promise<any>>) {
+  const res: T[] = []
   let i = 0
   while (i < ps.length) {
-    await ps[i]()
+    res.push(await ps[i]())
     i++
   }
+  return res
 }
