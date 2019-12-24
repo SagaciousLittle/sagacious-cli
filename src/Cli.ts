@@ -17,6 +17,7 @@ import {
   isGitRepo,
   isNpm,
   PromiseQuene,
+  PromiseRaceBy,
 } from './Util'
 
 
@@ -62,6 +63,14 @@ class Cli {
         const ora = Ora('开始分析模板')
           .start()
         const templates = _yargs.argv._.slice(1)
+        // PromiseQuene<AddOption>(templates.map(template => () => PromiseRaceBy([
+        //   isGitRepo(template),
+        //   isNpm(template),
+        //   isDir(template),
+        // ], f => f)
+        //   .then(res => {
+        //     console.log(res)
+        //   })))
         PromiseQuene<AddOption>(templates.map(template => () => new Promise(r => {
           let i = 0
           isGitRepo(template)

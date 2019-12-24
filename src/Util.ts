@@ -39,11 +39,9 @@ export function printLogo () {
  * @returns
  */
 export function isGitRepo (path: string): Promise<any> {
-  try {
-    return execa('git', ['remote', 'show', path])
-  } catch (e) {
-    return Promise.resolve(false)
-  }
+  return execa('git', ['remote', 'show', path])
+    .then(() => true)
+    .catch(() => false)
 }
 
 /**
@@ -54,11 +52,9 @@ export function isGitRepo (path: string): Promise<any> {
  * @returns
  */
 export function isDir (path: string): Promise<any> {
-  try {
-    return fs.readdir(path)
-  } catch (e) {
-    return Promise.resolve(false)
-  }
+  return fs.readdir(path)
+    .then(() => true)
+    .catch(() => false)
 }
 
 /**
@@ -69,13 +65,19 @@ export function isDir (path: string): Promise<any> {
  * @returns
  */
 export function isNpm (name: string): Promise<any> {
-  try {
-    return execa('npm', ['view', name])
-  } catch (e) {
-    return Promise.resolve(false)
-  }
+  return execa('npm', ['view', name])
+    .then(() => true)
+    .catch(() => false)
 }
 
+/**
+ * promise quene
+ *
+ * @export
+ * @template T
+ * @param {Array<() => Promise<any>>} ps
+ * @returns
+ */
 export async function PromiseQuene<T> (ps: Array<() => Promise<any>>) {
   const res: T[] = []
   let i = 0
@@ -84,4 +86,34 @@ export async function PromiseQuene<T> (ps: Array<() => Promise<any>>) {
     i++
   }
   return res
+}
+
+/**
+ * race with some rules
+ *
+ * @export
+ * @template T
+ * @param {Promise<T>[]} ps
+ * @param {(t: T, ...args: any[]) => boolean} regFn
+ * @param {...any[]} args
+ * @returns
+ */
+export function PromiseRaceBy<T> (ps: Promise<T>[], regFn: (t: T, ...args: any[]) => boolean, ...args: any[]) {
+  return new Promise(r => {
+    let e = 0
+    ps.forEach((p, i) => {
+      p.then(data => {
+        if (regFn(data, ...args)) r({
+          data,
+          p,
+          i,
+        })
+      })
+        .finally(() => {
+          if (++e === ps.length) r({
+            i: -1,
+          })
+        })
+    })
+  })
 }
