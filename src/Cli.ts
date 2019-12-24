@@ -6,6 +6,7 @@ import {
   yellowBright,
   greenBright,
   blueBright,
+  gray,
 } from 'chalk'
 import yargs from 'yargs'
 import TemplateManager, {
@@ -18,6 +19,7 @@ import {
   isNpm,
   PromiseQuene,
   PromiseRaceBy,
+  printLogo,
 } from './Util'
 
 
@@ -60,66 +62,37 @@ class Cli {
         this.create(appName)
       })
       .command(['add', 'a'], 'install the sag template locally', _yargs => {
-        const ora = Ora('开始分析模板')
-          .start()
         const templates = _yargs.argv._.slice(1)
-        // PromiseQuene<AddOption>(templates.map(template => () => PromiseRaceBy([
-        //   isGitRepo(template),
-        //   isNpm(template),
-        //   isDir(template),
-        // ], f => f)
-        //   .then(res => {
-        //     console.log(res)
-        //   })))
-        PromiseQuene<AddOption>(templates.map(template => () => new Promise(r => {
-          let i = 0
-          isGitRepo(template)
-            .then(f => {
-              if (f) r({
-                type: 'git',
-                path: template,
-              })
-            })
-            .catch(e => e)
-            .finally(() => {
-              if (++i === 3) r({
-                disabled: true,
-                template,
-              })
-            })
-          isDir(template)
-            .then(f => {
-              if (f) r({
-                type: 'file',
-                path: template,
-              })
-            })
-            .catch(e => e)
-            .finally(() => {
-              if (++i === 3) r({
-                disabled: true,
-                template,
-              })
-            })
-          isNpm(template)
-            .then(f => {
-              if (f) r({
-                type: 'npm',
-                name: template,
-              })
-            })
-            .catch(e => e)
-            .finally(() => {
-              if (++i === 3) r({
-                disabled: true,
-                name: template,
-              })
-            })
-        })))
+        printLogo()
+        const ora = Ora(gray('start analyzing templates'))
+          .start()
+        PromiseQuene<AddOption>(templates.map(name => () => PromiseRaceBy([
+          isGitRepo(name),
+          isNpm(name),
+          isDir(name),
+        ], f => f)
+          .then(res => {
+            let type = ''
+            let disabled = false
+            switch (res.i) {
+            case 0:
+              type = 'git'
+              break
+            case 1:
+              type = 'npm'
+              break
+            case 2:
+              type = 'file'
+              break
+            default:
+              disabled = true
+            }
+            return { path: name, name, type, disabled }
+          })))
           .then(options => {
-            ora.succeed('模板分析完成')
+            ora.succeed(greenBright('template analysis completed'))
             this.templateManager.addMore(options.filter(o => {
-              if (o.disabled) Ora(`未知模板类型：${o.name}`)
+              if (o.disabled) Ora(yellowBright(`unknown template type: ${o.name}`))
                 .start()
                 .warn()
               return !o.disabled
@@ -127,11 +100,11 @@ class Cli {
           })
       })
       .command(['clean'], 'clean your template dir', async _yargs => {
+        _yargs.parse()
         const ora = Ora('start clear')
           .start()
         await this.templateManager.clear()
-        ora.text = 'clean over'
-        ora.succeed()
+        ora.succeed(greenBright('clean over'))
         process.exit()
       })
       .showHelpOnFail(true)
@@ -153,7 +126,6 @@ class Cli {
       },
     ])
     if (!res.appName || !res.appName.trim()) res.appName = dirName
-    console.log(res.appName)
     inquirer
       .prompt([
         {

@@ -28,7 +28,8 @@ export function log (message: string) {
  * @export
  */
 export function printLogo () {
-  console.log(cyanBright(figlet.textSync(LOGO)))
+  console.clear()
+  console.log(cyanBright(`${figlet.textSync(LOGO)}\n`))
 }
 
 /**
@@ -99,7 +100,11 @@ export async function PromiseQuene<T> (ps: Array<() => Promise<any>>) {
  * @returns
  */
 export function PromiseRaceBy<T> (ps: Promise<T>[], regFn: (t: T, ...args: any[]) => boolean, ...args: any[]) {
-  return new Promise(r => {
+  return new Promise<{
+    data?: any
+    p?: Promise<T>
+    i: number
+  }>(r => {
     let e = 0
     ps.forEach((p, i) => {
       p.then(data => {

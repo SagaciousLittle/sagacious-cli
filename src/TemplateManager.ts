@@ -9,6 +9,10 @@ import Ora from './Ora'
 import {
   PromiseQuene,
 } from './Util'
+import {
+  gray,
+  greenBright,
+} from 'chalk'
 
 interface baseAddOption {
   type: string
@@ -34,7 +38,7 @@ interface FileAddOption extends baseAddOption {
 export type AddOption = NpmAddOption | GitAddOption | FileAddOption
 
 export default class TemplateManager {
-  private conf: Conf
+  conf: Conf
   private git = Git()
   constructor (private TEMPLATE_HOME: string = `${os.homedir()}/.sagacious/cli`) {
     if (!fs.existsSync(TEMPLATE_HOME)) fs.mkdirpSync(TEMPLATE_HOME)
@@ -60,8 +64,8 @@ export default class TemplateManager {
       return this.addFile(option)
     }
   }
-  async addMore (options: AddOption[]) {
-    PromiseQuene(options.map(o => () => this.add(o) || Promise.resolve()))
+  addMore (options: AddOption[]) {
+    return PromiseQuene(options.map(o => () => this.add(o) || Promise.resolve()))
       .then(() => {
         process.exit()
       })
@@ -86,7 +90,7 @@ export default class TemplateManager {
     }
   }
   addNpm (option: NpmAddOption) {
-    const ora = Ora(`开始添加模版：${option.name}`)
+    const ora = Ora(greenBright(`start adding templates: ${option.name}`))
       .start()
     const targetDir = `${this.TEMPLATE_HOME}/npm/te-${option.name}`
     fs.mkdirpSync(targetDir)
@@ -94,8 +98,16 @@ export default class TemplateManager {
     return execa('npm', ['init', '-y'])
       .then(() => execa('npm', ['install', option.name]))
       .then(() => {
-        ora.text = `模版${option.name}添加完成`
-        ora.succeed()
+        ora.succeed(greenBright(`template ${option.name} is added`))
+        const templates = this.conf.get('template') || []
+        if (templates.findIndex((o: AddOption) => o.name === option.name) > -1) return
+        this.conf.set('template', [
+          ...templates,
+          {
+            type: 'npm',
+            name: option.name,
+          },
+        ])
       })
   }
   addFile (option: FileAddOption) {
