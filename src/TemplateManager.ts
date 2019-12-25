@@ -15,6 +15,10 @@ import {
   gray,
 } from 'chalk'
 import pkgJson from 'package-json'
+import inquirer from 'inquirer'
+import {
+  resolve,
+} from 'path'
 
 interface baseAddOption {
   type: string
@@ -123,6 +127,38 @@ export default class TemplateManager {
     ora.succeed(greenBright(`template ${name} version ${realVersion} is added`))
   }
   addFile (option: FileAddOption) {
-    console.log(option)
+    const dirName = resolve(option.path)
+      .split('\\')
+      .pop()
+    inquirer
+      .prompt([
+        {
+          type: 'input',
+          name: 'name',
+          message: `✨  ${greenBright(`please enter your template name (${dirName})`)}`,
+        },
+        {
+          type: 'list',
+          name: 'template',
+          message: 'please select the template you want to use.',
+          choices: [
+            {
+              name: `namea (${yellowBright('router')}, ${yellowBright('eslint')})`,
+              value: 'valuea',
+            },
+            {
+              name: 'nameb',
+              value: 'valueb',
+            },
+            {
+              name: 'namec',
+              value: 'valuec',
+            },
+          ],
+        },
+      ])
+      .then(res => {
+        console.log(res)
+      })
   }
 }

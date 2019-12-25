@@ -22,7 +22,6 @@ import {
   printLogo,
 } from './Util'
 
-
 /**
  * 脚手架
  *
