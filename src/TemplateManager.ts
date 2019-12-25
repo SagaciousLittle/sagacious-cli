@@ -12,6 +12,7 @@ import {
 import {
   greenBright,
   yellowBright,
+  blueBright,
   gray,
 } from 'chalk'
 import pkgJson from 'package-json'
@@ -19,6 +20,7 @@ import inquirer from 'inquirer'
 import {
   resolve,
 } from 'path'
+import semver from 'semver'
 
 interface baseAddOption {
   type: string
@@ -36,12 +38,18 @@ interface GitAddOption extends baseAddOption {
   path: string
 }
 
-interface FileAddOption extends baseAddOption {
-  type: 'file'
+interface DirAddOption extends baseAddOption {
+  type: 'dir'
   path: string
 }
 
-export type AddOption = NpmAddOption | GitAddOption | FileAddOption
+export type AddOption = NpmAddOption | GitAddOption | DirAddOption
+
+export interface Template {
+  type: 'npm' | 'git' | 'dir'
+  name: string
+  versions: string[]
+}
 
 export default class TemplateManager {
   conf: Conf
@@ -51,7 +59,7 @@ export default class TemplateManager {
     this.conf = new Conf({
       cwd: TEMPLATE_HOME,
     })
-    if (!this.conf.get('template')) this.conf.set('template', [])
+    if (!this.conf.get('templates')) this.conf.set('templates', [])
   }
   initDefault () {
     
@@ -67,8 +75,8 @@ export default class TemplateManager {
       return this.addGit(option)
     case 'npm':
       return this.addNpm(option)
-    case 'file':
-      return this.addFile(option)
+    case 'dir':
+      return this.addDir(option)
     }
   }
   addMore (options: AddOption[]) {
@@ -101,12 +109,12 @@ export default class TemplateManager {
       .start()
     const [name, version] = option.name.split('@')
     const pkgInfo = await pkgJson(name, { version })
-    const realVersion = pkgInfo.version || pkgInfo['dist-tags'].latest
+    const realVersion = pkgInfo.version as string || pkgInfo['dist-tags'].latest
     const targetDir = `${this.TEMPLATE_HOME}/npm/te-${name}/v-${realVersion}`
-    fs.mkdirpSync(targetDir)
+    await fs.mkdirp(targetDir)
     process.chdir(targetDir)
-    const templates = this.conf.get('template')
-    let target = templates.find((o: AddOption) => o.name === name)
+    const templates: Template[] = this.conf.get('templates')
+    let target = templates.find(o => o.name === name)
     if (!target) {
       target = {
         type: 'npm',
@@ -121,44 +129,68 @@ export default class TemplateManager {
     } else {
       target.versions.push(realVersion)
     }
-    this.conf.set('template', templates)
+    this.conf.set('templates', templates)
     await execa('npm', ['init', '-y'])
     await execa('npm', ['install', option.name])
     ora.succeed(greenBright(`template ${name} version ${realVersion} is added`))
   }
-  addFile (option: FileAddOption) {
-    const dirName = resolve(option.path)
+  async addDir (option: DirAddOption) {
+    const templatePath = resolve(option.path)
+    const dirName = templatePath
       .split('\\')
       .pop()
-    inquirer
+    const { name } = await inquirer
       .prompt([
         {
           type: 'input',
           name: 'name',
-          message: `✨  ${greenBright(`please enter your template name (${dirName})`)}`,
-        },
-        {
-          type: 'list',
-          name: 'template',
-          message: 'please select the template you want to use.',
-          choices: [
-            {
-              name: `namea (${yellowBright('router')}, ${yellowBright('eslint')})`,
-              value: 'valuea',
-            },
-            {
-              name: 'nameb',
-              value: 'valueb',
-            },
-            {
-              name: 'namec',
-              value: 'valuec',
-            },
-          ],
+          message: `✨  ${greenBright('please enter your template name')}`,
+          default: dirName,
         },
       ])
-      .then(res => {
-        console.log(res)
-      })
+    let suggestVersion = '1.0.0'
+    const templates: Template[] = this.conf.get('templates')
+    let target = templates.find(o => o.name === name)
+    if (!target) {
+      target = {
+        type: 'dir',
+        name,
+        versions: [],
+      }
+      templates.push(target)
+    }
+    if (target.versions.length > 0) {
+      suggestVersion = semver.inc(target.versions.slice(-1)[0], 'patch') || '1.0.0'
+    }
+    const { iv } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'iv',
+        message: `✨  ${greenBright('please enter your template version')}`,
+        default: suggestVersion,
+      },
+    ])
+    const version = semver.valid(iv)
+    if (version) {
+      if (target.versions.findIndex(v => v === version) > -1) return Ora(yellowBright(`your template ${name} version ${version} already exists`))
+        .warn()
+      target.versions.push(version)
+      target.versions.sort((a: string, b: string) => (semver.lt(a, b) ? -1 : 1))
+      this.conf.set('templates', templates)
+      const ora = Ora(gray(`start adding templates: ${name}`))
+        .start()
+      const targetDir = `${this.TEMPLATE_HOME}/dir/te-${name}/v-${version}`
+      await fs.mkdirp(targetDir)
+      process.chdir(templatePath)
+      const ignores = [
+        'node_modules',
+      ]
+      const files = (await fs.readdir('.')).filter(o => !ignores.includes(o))
+      await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetDir}/${f}`)))
+      ora.succeed(greenBright(`template ${name} version ${version} is added`))
+    } else {
+      Ora(yellowBright(`your version ${iv} does not meet the semantic versioning standard`))
+        .warn()
+    }
   }
 }

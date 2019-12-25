@@ -81,7 +81,7 @@ class Cli {
               type = 'npm'
               break
             case 2:
-              type = 'file'
+              type = 'dir'
               break
             default:
               disabled = true
