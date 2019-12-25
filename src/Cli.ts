@@ -101,11 +101,16 @@ class Cli {
       })
       .command(['clean'], 'clean your template dir', async _yargs => {
         _yargs.parse()
+        printLogo()
         const ora = Ora('start clear')
           .start()
         await this.templateManager.clear()
         ora.succeed(greenBright('clean over'))
         process.exit()
+      })
+      .command(['check'], 'check your config file', _yargs => {
+        _yargs.parse()
+        console.log(this.templateManager.conf.get('template'))
       })
       .showHelpOnFail(true)
     const _args = _.parse()

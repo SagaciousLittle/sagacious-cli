@@ -36,6 +36,7 @@
     "jest": "^24.9.0",
     "lodash": "^4.17.15",
     "ora": "^4.0.3",
+    "package-json": "^6.5.0",
     "rollup": "^1.26.5",
     "rollup-plugin-bin": "^1.0.0",
     "rollup-plugin-delete": "^1.1.0",

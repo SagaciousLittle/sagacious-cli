@@ -10,9 +10,11 @@ import {
   PromiseQuene,
 } from './Util'
 import {
-  gray,
   greenBright,
+  yellowBright,
+  gray,
 } from 'chalk'
+import pkgJson from 'package-json'
 
 interface baseAddOption {
   type: string
@@ -45,6 +47,7 @@ export default class TemplateManager {
     this.conf = new Conf({
       cwd: TEMPLATE_HOME,
     })
+    if (!this.conf.get('template')) this.conf.set('template', [])
   }
   initDefault () {
     
@@ -89,26 +92,35 @@ export default class TemplateManager {
       await this.git.pull()
     }
   }
-  addNpm (option: NpmAddOption) {
-    const ora = Ora(greenBright(`start adding templates: ${option.name}`))
+  async addNpm (option: NpmAddOption) {
+    const ora = Ora(gray(`start adding templates: ${option.name}`))
       .start()
-    const targetDir = `${this.TEMPLATE_HOME}/npm/te-${option.name}`
+    const [name, version] = option.name.split('@')
+    const pkgInfo = await pkgJson(name, { version })
+    const realVersion = pkgInfo.version || pkgInfo['dist-tags'].latest
+    const targetDir = `${this.TEMPLATE_HOME}/npm/te-${name}/v-${realVersion}`
     fs.mkdirpSync(targetDir)
     process.chdir(targetDir)
-    return execa('npm', ['init', '-y'])
-      .then(() => execa('npm', ['install', option.name]))
-      .then(() => {
-        ora.succeed(greenBright(`template ${option.name} is added`))
-        const templates = this.conf.get('template') || []
-        if (templates.findIndex((o: AddOption) => o.name === option.name) > -1) return
-        this.conf.set('template', [
-          ...templates,
-          {
-            type: 'npm',
-            name: option.name,
-          },
-        ])
-      })
+    const templates = this.conf.get('template')
+    let target = templates.find((o: AddOption) => o.name === name)
+    if (!target) {
+      target = {
+        type: 'npm',
+        name,
+        versions: [],
+      }
+      templates.push(target)
+    }
+    if (target.versions.findIndex((v: string) => v === realVersion) > -1) {
+      ora.warn(yellowBright(`template ${name} version ${realVersion} is already installed`))
+      return
+    } else {
+      target.versions.push(realVersion)
+    }
+    this.conf.set('template', templates)
+    await execa('npm', ['init', '-y'])
+    await execa('npm', ['install', option.name])
+    ora.succeed(greenBright(`template ${name} version ${realVersion} is added`))
   }
   addFile (option: FileAddOption) {
     console.log(option)
