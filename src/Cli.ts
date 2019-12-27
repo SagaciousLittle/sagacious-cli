@@ -59,12 +59,12 @@ class Cli {
       .example('example', 'example')
       .epilog(`Run ${blueBright('sag <command> --help')} for detailed usage of given command.`)
       .command(['create', 'c'], 'create a project based on the template', _yargs => {
-        let [command, appName] = _yargs.argv._
+        let [, appName] = _yargs.argv._
         this.create(appName)
       })
       .command(['add', 'a'], 'install the sag template locally', _yargs => {
         const templates = _yargs.argv._.slice(1)
-        printLogo()
+        // printLogo()
         const ora = Ora(gray('start analyzing templates'))
           .start()
         PromiseQuene<AddOption>(templates.map(name => () => PromiseRaceBy([
@@ -102,7 +102,7 @@ class Cli {
       })
       .command(['clean'], 'clean your template dir', async _yargs => {
         _yargs.parse()
-        printLogo()
+        // printLogo()
         const ora = Ora('start clear')
           .start()
         await this.templateManager.clear()
@@ -112,7 +112,7 @@ class Cli {
       .command(['check'], 'check your config file', _yargs => {
         _yargs.parse()
         const templates: Template[] = this.templateManager.conf.get('templates')
-        printLogo()
+        // printLogo()
         console.log(cyan(`you have a total of ${templates.length} templates`))
         templates.forEach(({ name, path, type, versions }) => {
           console.log(`\n${greenBright(name)}\ntype: ${greenBright(type)}\n${path ? `path: ${greenBright(path)}\n` : ''}versions: ${greenBright(versions.map((v, i) => {

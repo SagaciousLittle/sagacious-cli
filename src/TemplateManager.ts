@@ -29,7 +29,6 @@ interface baseAddOption {
 
 interface NpmAddOption extends baseAddOption {
   type: 'npm'
-  version?: string
 }
 
 interface GitAddOption extends baseAddOption {
@@ -44,8 +43,10 @@ interface DirAddOption extends baseAddOption {
 
 export type AddOption = NpmAddOption | GitAddOption | DirAddOption
 
+type TemplateType = 'npm' | 'git' | 'dir'
+
 export interface Template {
-  type: 'npm' | 'git' | 'dir'
+  type: TemplateType
   name: string
   path?: string
   versions: string[]
@@ -97,36 +98,8 @@ export default class TemplateManager {
           default: gitName,
         },
       ])
-    let suggestVersion = '1.0.0'
-    const templates: Template[] = this.conf.get('templates')
-    let target = templates.find(o => o.name === name && o.type === 'git')
-    if (!target) {
-      target = {
-        type: 'git',
-        name,
-        path: option.path,
-        versions: [],
-      }
-      templates.push(target)
-    }
-    if (target.versions.length > 0) {
-      suggestVersion = semver.inc(target.versions.slice(-1)[0], 'patch') || '1.0.0'
-    }
-    const { iv } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'iv',
-        message: `✨  ${greenBright('please enter your template version')}`,
-        default: suggestVersion,
-      },
-    ])
-    const version = semver.valid(iv)
-    if (version) {
-      if (target.versions.findIndex(v => v === version) > -1) return Ora(yellowBright(`your template ${name} version ${version} already exists`))
-        .warn()
-      target.versions.push(version)
-      target.versions.sort((a: string, b: string) => (semver.lt(a, b) ? -1 : 1))
-      this.conf.set('templates', templates)
+    try {
+      const version = await this.addConf('git', name)
       const ora = Ora(gray(`start adding templates: ${name}`))
         .start()
       const targetDir = `${this.TEMPLATE_HOME}/git/te-${name}/v-${version}`
@@ -134,40 +107,27 @@ export default class TemplateManager {
       this.git.cwd(targetDir)
       await this.git.clone(option.path)
       ora.succeed(greenBright(`template ${name} version ${version} is added`))
-    } else {
-      Ora(yellowBright(`your version ${iv} does not meet the semantic versioning standard`))
+    } catch (e) {
+      Ora(yellowBright(e.message))
         .warn()
     }
   }
   async addNpm (option: NpmAddOption) {
     const ora = Ora(gray(`start adding templates: ${option.name}`))
       .start()
-    const [name, version] = option.name.split('@')
-    const pkgInfo = await pkgJson(name, { version })
-    const realVersion = pkgInfo.version as string || pkgInfo['dist-tags'].latest
-    const targetDir = `${this.TEMPLATE_HOME}/npm/te-${name}/v-${realVersion}`
-    await fs.mkdirp(targetDir)
-    process.chdir(targetDir)
-    const templates: Template[] = this.conf.get('templates')
-    let target = templates.find(o => o.name === name && o.type === 'npm')
-    if (!target) {
-      target = {
-        type: 'npm',
-        name,
-        versions: [],
-      }
-      templates.push(target)
+    const [name] = option.name.split('@')
+    try {
+      const version = await this.addConf('npm', name)
+      const targetDir = `${this.TEMPLATE_HOME}/npm/te-${name}/v-${version}`
+      await fs.mkdirp(targetDir)
+      process.chdir(targetDir)
+      await execa('npm', ['init', '-y'])
+      await execa('npm', ['install', option.name])
+      ora.succeed(greenBright(`template ${name} version ${version} is added`))
+    } catch (e) {
+      Ora(yellowBright(e.message))
+        .warn()
     }
-    if (target.versions.findIndex((v: string) => v === realVersion) > -1) {
-      ora.warn(yellowBright(`template ${name} version ${realVersion} is already installed`))
-      return
-    } else {
-      target.versions.push(realVersion)
-    }
-    this.conf.set('templates', templates)
-    await execa('npm', ['init', '-y'])
-    await execa('npm', ['install', option.name])
-    ora.succeed(greenBright(`template ${name} version ${realVersion} is added`))
   }
   async addDir (option: DirAddOption) {
     const templatePath = resolve(option.path)
@@ -183,12 +143,26 @@ export default class TemplateManager {
           default: dirName,
         },
       ])
+    const version = await this.addConf('dir', name)
+    const ora = Ora(gray(`start adding templates: ${name}`))
+      .start()
+    const targetDir = `${this.TEMPLATE_HOME}/dir/te-${name}/v-${version}`
+    await fs.mkdirp(targetDir)
+    process.chdir(templatePath)
+    const ignores = [
+      'node_modules',
+    ]
+    const files = (await fs.readdir('.')).filter(o => !ignores.includes(o))
+    await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetDir}/${f}`)))
+    ora.succeed(greenBright(`template ${name} version ${version} is added`))
+  }
+  async addConf (type: TemplateType, name: string) {
     let suggestVersion = '1.0.0'
     const templates: Template[] = this.conf.get('templates')
-    let target = templates.find(o => o.name === name && o.type === 'dir')
+    let target = templates.find(o => o.name === name && o.type === type)
     if (!target) {
       target = {
-        type: 'dir',
+        type,
         name,
         versions: [],
       }
@@ -197,35 +171,30 @@ export default class TemplateManager {
     if (target.versions.length > 0) {
       suggestVersion = semver.inc(target.versions.slice(-1)[0], 'patch') || '1.0.0'
     }
-    const { iv } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'iv',
-        message: `✨  ${greenBright('please enter your template version')}`,
-        default: suggestVersion,
-      },
-    ])
-    const version = semver.valid(iv)
+    let [, version] = name.split('@') as any
+    if (type !== 'npm') {
+      const { iv } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'iv',
+          message: `✨  ${greenBright('please enter your template version')}`,
+          default: suggestVersion,
+        },
+      ])
+      version = semver.valid(iv)
+    } else {
+      const pkgInfo = await pkgJson(name, { version })
+      version = pkgInfo.version as string || pkgInfo['dist-tags'].latest
+    }
     if (version) {
-      if (target.versions.findIndex(v => v === version) > -1) return Ora(yellowBright(`your template ${name} version ${version} already exists`))
-        .warn()
+      if (target.versions.findIndex(v => v === version) > -1) throw new Error(`your template ${name} version ${version} already exists`)
       target.versions.push(version)
       target.versions.sort((a: string, b: string) => (semver.lt(a, b) ? -1 : 1))
       this.conf.set('templates', templates)
-      const ora = Ora(gray(`start adding templates: ${name}`))
-        .start()
-      const targetDir = `${this.TEMPLATE_HOME}/dir/te-${name}/v-${version}`
-      await fs.mkdirp(targetDir)
-      process.chdir(templatePath)
-      const ignores = [
-        'node_modules',
-      ]
-      const files = (await fs.readdir('.')).filter(o => !ignores.includes(o))
-      await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetDir}/${f}`)))
-      ora.succeed(greenBright(`template ${name} version ${version} is added`))
     } else {
-      Ora(yellowBright(`your version ${iv} does not meet the semantic versioning standard`))
-        .warn()
+      throw new Error(`your version ${version} does not meet the semantic versioning standard`)
     }
+    return version
   }
+  removeConf () {}
 }

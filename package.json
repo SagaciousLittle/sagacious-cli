@@ -49,5 +49,19 @@
     "ts-node": "^8.5.0",
     "typescript": "^3.7.2",
     "yargs": "^14.2.0"
-  }
+  },
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SagaciousLittle/sagacious-cli.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/SagaciousLittle/sagacious-cli/issues"
+  },
+  "homepage": "https://github.com/SagaciousLittle/sagacious-cli#readme"
 }
