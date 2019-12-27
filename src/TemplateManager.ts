@@ -113,11 +113,11 @@ export default class TemplateManager {
     }
   }
   async addNpm (option: NpmAddOption) {
-    const ora = Ora(gray(`start adding templates: ${option.name}`))
-      .start()
     const [name] = option.name.split('@')
     try {
       const version = await this.addConf('npm', name)
+      const ora = Ora(gray(`start adding templates: ${option.name}`))
+        .start()
       const targetDir = `${this.TEMPLATE_HOME}/npm/te-${name}/v-${version}`
       await fs.mkdirp(targetDir)
       process.chdir(targetDir)
@@ -196,5 +196,15 @@ export default class TemplateManager {
     }
     return version
   }
-  removeConf () {}
+  removeConf (type: TemplateType, name: string, version: string) {
+    const templates: Template[] = this.conf.get('templates')
+    const targetIndex = templates.findIndex(template => template.name === name && template.type === type)
+    const target = templates[targetIndex]
+    if (!target) return
+    const versionIndex = target.versions.findIndex(v => v === version)
+    if (versionIndex < 0) return
+    target.versions.splice(versionIndex, 1)
+    if (target.versions.length === 0) templates.splice(targetIndex, 1)
+    this.conf.set('templates', templates)
+  }
 }
