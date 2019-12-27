@@ -12,7 +12,6 @@ import {
 import {
   greenBright,
   yellowBright,
-  blueBright,
   gray,
 } from 'chalk'
 import pkgJson from 'package-json'
@@ -48,6 +47,7 @@ export type AddOption = NpmAddOption | GitAddOption | DirAddOption
 export interface Template {
   type: 'npm' | 'git' | 'dir'
   name: string
+  path?: string
   versions: string[]
 }
 
@@ -85,23 +85,58 @@ export default class TemplateManager {
         process.exit()
       })
   }
-  async addGit ({ name, path }: GitAddOption) {
-    const {
-      conf,
-    } = this
-    if (!name) {
-      name = (path.split('\/')
-        .pop() || '').replace('\.git', '')
+  async addGit (option: GitAddOption) {
+    const gitName = /\S+\.git/.test(option.name) ? (option.path.split('\/')
+      .pop() || '').replace('\.git', '') : option.name
+    const { name } = await inquirer
+      .prompt([
+        {
+          type: 'input',
+          name: 'name',
+          message: `✨  ${greenBright('please enter your template name')}`,
+          default: gitName,
+        },
+      ])
+    let suggestVersion = '1.0.0'
+    const templates: Template[] = this.conf.get('templates')
+    let target = templates.find(o => o.name === name && o.type === 'git')
+    if (!target) {
+      target = {
+        type: 'git',
+        name,
+        path: option.path,
+        versions: [],
+      }
+      templates.push(target)
     }
-    if (!conf.get(`git.${name}`)) {
-      this.git.cwd(`${this.TEMPLATE_HOME}/git`)
-      await this.git.clone(path)
-      conf.set(`git.${name}`, {
-        path,
-      })
+    if (target.versions.length > 0) {
+      suggestVersion = semver.inc(target.versions.slice(-1)[0], 'patch') || '1.0.0'
+    }
+    const { iv } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'iv',
+        message: `✨  ${greenBright('please enter your template version')}`,
+        default: suggestVersion,
+      },
+    ])
+    const version = semver.valid(iv)
+    if (version) {
+      if (target.versions.findIndex(v => v === version) > -1) return Ora(yellowBright(`your template ${name} version ${version} already exists`))
+        .warn()
+      target.versions.push(version)
+      target.versions.sort((a: string, b: string) => (semver.lt(a, b) ? -1 : 1))
+      this.conf.set('templates', templates)
+      const ora = Ora(gray(`start adding templates: ${name}`))
+        .start()
+      const targetDir = `${this.TEMPLATE_HOME}/git/te-${name}/v-${version}`
+      await fs.mkdirp(targetDir)
+      this.git.cwd(targetDir)
+      await this.git.clone(option.path)
+      ora.succeed(greenBright(`template ${name} version ${version} is added`))
     } else {
-      this.git.cwd(`${this.TEMPLATE_HOME}/git/${name}`)
-      await this.git.pull()
+      Ora(yellowBright(`your version ${iv} does not meet the semantic versioning standard`))
+        .warn()
     }
   }
   async addNpm (option: NpmAddOption) {
@@ -114,7 +149,7 @@ export default class TemplateManager {
     await fs.mkdirp(targetDir)
     process.chdir(targetDir)
     const templates: Template[] = this.conf.get('templates')
-    let target = templates.find(o => o.name === name)
+    let target = templates.find(o => o.name === name && o.type === 'npm')
     if (!target) {
       target = {
         type: 'npm',
@@ -150,7 +185,7 @@ export default class TemplateManager {
       ])
     let suggestVersion = '1.0.0'
     const templates: Template[] = this.conf.get('templates')
-    let target = templates.find(o => o.name === name)
+    let target = templates.find(o => o.name === name && o.type === 'dir')
     if (!target) {
       target = {
         type: 'dir',

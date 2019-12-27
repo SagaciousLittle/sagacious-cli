@@ -7,10 +7,12 @@ import {
   greenBright,
   blueBright,
   gray,
+  cyan,
 } from 'chalk'
 import yargs from 'yargs'
 import TemplateManager, {
   AddOption,
+  Template,
 } from './TemplateManager'
 import Ora from './Ora'
 import {
@@ -109,7 +111,16 @@ class Cli {
       })
       .command(['check'], 'check your config file', _yargs => {
         _yargs.parse()
-        console.log(this.templateManager.conf.get('template'))
+        const templates: Template[] = this.templateManager.conf.get('templates')
+        printLogo()
+        console.log(cyan(`you have a total of ${templates.length} templates`))
+        templates.forEach(({ name, path, type, versions }) => {
+          console.log(`\n${greenBright(name)}\ntype: ${greenBright(type)}\n${path ? `path: ${greenBright(path)}\n` : ''}versions: ${greenBright(versions.map((v, i) => {
+            if (i === versions.length - 1) return v
+            else return `${v} | `
+          })
+            .join(''))}`)
+        })
       })
       .showHelpOnFail(true)
     const _args = _.parse()
