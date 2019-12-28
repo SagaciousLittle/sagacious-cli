@@ -49,7 +49,10 @@ export interface Template {
   type: TemplateType
   name: string
   path?: string
-  versions: string[]
+  versions: {
+    version: string
+    finish: boolean
+  }[]
 }
 
 export default class TemplateManager {
@@ -70,6 +73,18 @@ export default class TemplateManager {
       force: true,
     })
   }
+  async remove (type: TemplateType, name: string, version?: string) {
+    let targetDir = `${this.TEMPLATE_HOME}/${type}/te-${name}`
+    if (version) targetDir += `/v-${version}`
+    await del(targetDir)
+    this.removeConf(type, name, version)
+  }
+  addMore (options: AddOption[]) {
+    return PromiseQuene(options.map(o => () => this.add(o) || Promise.resolve()))
+      .then(() => {
+        process.exit()
+      })
+  }
   add (option: AddOption) {
     switch (option.type) {
     case 'git':
@@ -79,12 +94,6 @@ export default class TemplateManager {
     case 'dir':
       return this.addDir(option)
     }
-  }
-  addMore (options: AddOption[]) {
-    return PromiseQuene(options.map(o => () => this.add(o) || Promise.resolve()))
-      .then(() => {
-        process.exit()
-      })
   }
   async addGit (option: GitAddOption) {
     const gitName = /\S+\.git/.test(option.name) ? (option.path.split('\/')
@@ -99,13 +108,15 @@ export default class TemplateManager {
         },
       ])
     try {
-      const version = await this.addConf('git', name)
+      const [version, templates, target] = await this.addConf('git', name)
       const ora = Ora(gray(`start adding templates: ${name}`))
         .start()
       const targetDir = `${this.TEMPLATE_HOME}/git/te-${name}/v-${version}`
       await fs.mkdirp(targetDir)
       this.git.cwd(targetDir)
       await this.git.clone(option.path)
+      target.finish = true
+      this.conf.set('templates', templates)
       ora.succeed(greenBright(`template ${name} version ${version} is added`))
     } catch (e) {
       Ora(yellowBright(e.message))
@@ -115,7 +126,7 @@ export default class TemplateManager {
   async addNpm (option: NpmAddOption) {
     const [name] = option.name.split('@')
     try {
-      const version = await this.addConf('npm', name)
+      const [version, templates, target] = await this.addConf('npm', option.name)
       const ora = Ora(gray(`start adding templates: ${option.name}`))
         .start()
       const targetDir = `${this.TEMPLATE_HOME}/npm/te-${name}/v-${version}`
@@ -123,6 +134,8 @@ export default class TemplateManager {
       process.chdir(targetDir)
       await execa('npm', ['init', '-y'])
       await execa('npm', ['install', option.name])
+      target.finish = true
+      this.conf.set('templates', templates)
       ora.succeed(greenBright(`template ${name} version ${version} is added`))
     } catch (e) {
       Ora(yellowBright(e.message))
@@ -143,7 +156,7 @@ export default class TemplateManager {
           default: dirName,
         },
       ])
-    const version = await this.addConf('dir', name)
+    const [version, templates, target] = await this.addConf('dir', name)
     const ora = Ora(gray(`start adding templates: ${name}`))
       .start()
     const targetDir = `${this.TEMPLATE_HOME}/dir/te-${name}/v-${version}`
@@ -154,24 +167,26 @@ export default class TemplateManager {
     ]
     const files = (await fs.readdir('.')).filter(o => !ignores.includes(o))
     await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetDir}/${f}`)))
+    target.finish = true
+    this.conf.set('templates', templates)
     ora.succeed(greenBright(`template ${name} version ${version} is added`))
   }
   async addConf (type: TemplateType, name: string) {
     let suggestVersion = '1.0.0'
+    let [realName, version] = name.split('@') as any
     const templates: Template[] = this.conf.get('templates')
-    let target = templates.find(o => o.name === name && o.type === type)
+    let target = templates.find(o => o.name === realName && o.type === type)
     if (!target) {
       target = {
         type,
-        name,
+        name: realName,
         versions: [],
       }
       templates.push(target)
     }
     if (target.versions.length > 0) {
-      suggestVersion = semver.inc(target.versions.slice(-1)[0], 'patch') || '1.0.0'
+      suggestVersion = semver.inc(target.versions.slice(-1)[0].version, 'patch') || '1.0.0'
     }
-    let [, version] = name.split('@') as any
     if (type !== 'npm') {
       const { iv } = await inquirer.prompt([
         {
@@ -183,28 +198,35 @@ export default class TemplateManager {
       ])
       version = semver.valid(iv)
     } else {
-      const pkgInfo = await pkgJson(name, { version })
+      const pkgInfo = await pkgJson(realName, { version })
       version = pkgInfo.version as string || pkgInfo['dist-tags'].latest
     }
+    let targetVersion
     if (version) {
-      if (target.versions.findIndex(v => v === version) > -1) throw new Error(`your template ${name} version ${version} already exists`)
-      target.versions.push(version)
-      target.versions.sort((a: string, b: string) => (semver.lt(a, b) ? -1 : 1))
+      if (target.versions.findIndex(v => v.version === version) > -1) throw new Error(`your template ${name} version ${version} already exists`)
+      targetVersion = {
+        finish: false,
+        version,
+      }
+      target.versions.push(targetVersion)
+      target.versions.sort((a, b) => (semver.lt(a.version, b.version) ? -1 : 1))
       this.conf.set('templates', templates)
     } else {
       throw new Error(`your version ${version} does not meet the semantic versioning standard`)
     }
-    return version
+    return [version, templates, targetVersion]
   }
-  removeConf (type: TemplateType, name: string, version: string) {
+  removeConf (type: TemplateType, name: string, version?: string) {
     const templates: Template[] = this.conf.get('templates')
     const targetIndex = templates.findIndex(template => template.name === name && template.type === type)
     const target = templates[targetIndex]
     if (!target) return
-    const versionIndex = target.versions.findIndex(v => v === version)
-    if (versionIndex < 0) return
-    target.versions.splice(versionIndex, 1)
-    if (target.versions.length === 0) templates.splice(targetIndex, 1)
+    if (version) {
+      const versionIndex = target.versions.findIndex(v => v.version === version)
+      if (versionIndex < 0) return
+      target.versions.splice(versionIndex, 1)
+    }
+    if (!version || target.versions.length === 0) templates.splice(targetIndex, 1)
     this.conf.set('templates', templates)
   }
 }

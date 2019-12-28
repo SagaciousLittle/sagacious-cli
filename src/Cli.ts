@@ -64,7 +64,7 @@ class Cli {
       })
       .command(['add', 'a'], 'install the sag template locally', _yargs => {
         const templates = _yargs.argv._.slice(1)
-        // printLogo()
+        printLogo()
         const ora = Ora(gray('start analyzing templates'))
           .start()
         PromiseQuene<AddOption>(templates.map(name => () => PromiseRaceBy([
@@ -102,7 +102,7 @@ class Cli {
       })
       .command(['clean'], 'clean your template dir', async _yargs => {
         _yargs.parse()
-        // printLogo()
+        printLogo()
         const ora = Ora('start clear')
           .start()
         await this.templateManager.clear()
@@ -111,11 +111,15 @@ class Cli {
       })
       .command(['check'], 'check your config file', _yargs => {
         _yargs.parse()
-        const templates: Template[] = this.templateManager.conf.get('templates')
-        // printLogo()
+        const templates = (this.templateManager.conf.get('templates') as Template[]).filter(template => {
+          template.versions = template.versions.filter(v => v.finish)
+          return template.versions.length > 0
+        })
+        printLogo()
         console.log(cyan(`you have a total of ${templates.length} templates`))
         templates.forEach(({ name, path, type, versions }) => {
-          console.log(`\n${greenBright(name)}\ntype: ${greenBright(type)}\n${path ? `path: ${greenBright(path)}\n` : ''}versions: ${greenBright(versions.map((v, i) => {
+          console.log(`\n${greenBright(name)}\ntype: ${greenBright(type)}\n${path ? `path: ${greenBright(path)}\n` : ''}versions: ${greenBright(versions.map((o, i) => {
+            const v = o.version
             if (i === versions.length - 1) return v
             else return `${v} | `
           })
