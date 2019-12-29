@@ -93,8 +93,7 @@ class Cli {
           .then(options => {
             ora.succeed(greenBright('template analysis completed'))
             this.templateManager.addMore(options.filter(o => {
-              if (o.disabled) Ora(yellowBright(`unknown template type: ${o.name}`))
-                .start()
+              if (o.disabled) Ora(yellowBright(`unknown template type: ${o.name}${o.name.endsWith('\.git')  && ', please check if your repository is private'}`))
                 .warn()
               return !o.disabled
             }))

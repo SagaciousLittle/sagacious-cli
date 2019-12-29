@@ -21,28 +21,6 @@ import {
 } from 'path'
 import semver from 'semver'
 
-interface baseAddOption {
-  type: string
-  name: string
-  disabled?: boolean
-}
-
-interface NpmAddOption extends baseAddOption {
-  type: 'npm'
-}
-
-interface GitAddOption extends baseAddOption {
-  type: 'git'
-  path: string
-}
-
-interface DirAddOption extends baseAddOption {
-  type: 'dir'
-  path: string
-}
-
-export type AddOption = NpmAddOption | GitAddOption | DirAddOption
-
 type TemplateType = 'npm' | 'git' | 'dir'
 
 export interface Template {
@@ -53,6 +31,18 @@ export interface Template {
     version: string
     finish: boolean
   }[]
+}
+
+export interface AddOption {
+  type: TemplateType
+  name: string
+  path: string
+  disabled?: boolean
+}
+
+interface Add {
+  init: () => Promise<string | undefined>
+  exec: (targetDir: string) => Promise<void>
 }
 
 export default class TemplateManager {
@@ -85,91 +75,84 @@ export default class TemplateManager {
         process.exit()
       })
   }
-  add (option: AddOption) {
-    switch (option.type) {
-    case 'git':
-      return this.addGit(option)
-    case 'npm':
-      return this.addNpm(option)
-    case 'dir':
-      return this.addDir(option)
-    }
-  }
-  async addGit (option: GitAddOption) {
-    const gitName = /\S+\.git/.test(option.name) ? (option.path.split('\/')
-      .pop() || '').replace('\.git', '') : option.name
-    const { name } = await inquirer
-      .prompt([
-        {
-          type: 'input',
-          name: 'name',
-          message: `✨  ${greenBright('please enter your template name')}`,
-          default: gitName,
-        },
-      ])
+  async add (option: AddOption) {
     try {
-      const [version, templates, target] = await this.addConf('git', name)
+      const {
+        type,
+      } = option
+      let fn: (option: AddOption) => Add
+      switch (type) {
+      case 'git':
+        fn = this.addGit
+        break
+      case 'npm':
+        fn = this.addNpm
+        break
+      case 'dir':
+        fn = this.addDir
+        break
+      }
+      const { init, exec } = fn.call(this, option)
+      let name = type !== 'npm' ? (await inquirer
+        .prompt([
+          {
+            type: 'input',
+            name: 'askName',
+            message: `✨  ${greenBright('please enter your template name')}`,
+            default: await init(),
+          },
+        ])).askName : option.name
+      if (!name) throw new Error('the name should be set to an explicit value')
+      const [version, templates, target] = await this.addConf(type, name)
       const ora = Ora(gray(`start adding templates: ${name}`))
         .start()
-      const targetDir = `${this.TEMPLATE_HOME}/git/te-${name}/v-${version}`
+      const targetDir = `${this.TEMPLATE_HOME}/${type}/te-${name}/v-${version}`
       await fs.mkdirp(targetDir)
+      await exec(targetDir)
+      target.finish = true
+      this.conf.set('templates', templates)
+      ora.succeed(greenBright(`template ${name} version ${version} is added`))
+    } catch (e) {
+      Ora(yellowBright(e.message))
+        .warn()
+    }
+  }
+  addGit (option: AddOption) {
+    const init = async () => (/\S+\.git/.test(option.name) ? (option.path.split('\/')
+      .pop() || '').replace('\.git', '') : option.name)
+    const exec = async (targetDir: string) => {
       this.git.cwd(targetDir)
       await this.git.clone(option.path)
-      target.finish = true
-      this.conf.set('templates', templates)
-      ora.succeed(greenBright(`template ${name} version ${version} is added`))
-    } catch (e) {
-      Ora(yellowBright(e.message))
-        .warn()
     }
+    return { init, exec }
   }
-  async addNpm (option: NpmAddOption) {
-    const [name] = option.name.split('@')
-    try {
-      const [version, templates, target] = await this.addConf('npm', option.name)
-      const ora = Ora(gray(`start adding templates: ${option.name}`))
-        .start()
-      const targetDir = `${this.TEMPLATE_HOME}/npm/te-${name}/v-${version}`
-      await fs.mkdirp(targetDir)
-      process.chdir(targetDir)
+  addNpm (option: AddOption) {
+    const init = async () => {
+      const [name] = option.name.split('@')
+      return name
+    }
+    const exec = async (targetDir: string) => {
+      const execPath = process.cwd()
+      process.chdir(resolve(targetDir))
       await execa('npm', ['init', '-y'])
       await execa('npm', ['install', option.name])
-      target.finish = true
-      this.conf.set('templates', templates)
-      ora.succeed(greenBright(`template ${name} version ${version} is added`))
-    } catch (e) {
-      Ora(yellowBright(e.message))
-        .warn()
+      process.chdir(resolve(execPath))
     }
+    return { init, exec }
   }
-  async addDir (option: DirAddOption) {
+  addDir (option: AddOption) {
     const templatePath = resolve(option.path)
-    const dirName = templatePath
+    const init = async () => templatePath
       .split('\\')
       .pop()
-    const { name } = await inquirer
-      .prompt([
-        {
-          type: 'input',
-          name: 'name',
-          message: `✨  ${greenBright('please enter your template name')}`,
-          default: dirName,
-        },
-      ])
-    const [version, templates, target] = await this.addConf('dir', name)
-    const ora = Ora(gray(`start adding templates: ${name}`))
-      .start()
-    const targetDir = `${this.TEMPLATE_HOME}/dir/te-${name}/v-${version}`
-    await fs.mkdirp(targetDir)
-    process.chdir(templatePath)
-    const ignores = [
-      'node_modules',
-    ]
-    const files = (await fs.readdir('.')).filter(o => !ignores.includes(o))
-    await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetDir}/${f}`)))
-    target.finish = true
-    this.conf.set('templates', templates)
-    ora.succeed(greenBright(`template ${name} version ${version} is added`))
+    const exec = async (targetDir: string) => {
+      const ignores = [
+        'node_modules',
+      ]
+      const files = (await fs.readdir(templatePath)).filter(o => !ignores.includes(o))
+      await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetDir}/${f}`)))
+    }
+    return { init, exec }
   }
   async addConf (type: TemplateType, name: string) {
     let suggestVersion = '1.0.0'

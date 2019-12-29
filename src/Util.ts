@@ -4,10 +4,12 @@ import {
   gray,
   cyanBright,
 } from 'chalk'
-import execa, {
-  ExecaReturnValue, 
-} from 'execa'
+import execa from 'execa'
 import fs from 'fs-extra'
+import {
+  resolve,
+} from 'path'
+import os from 'os'
 
 export const LOGO = 'sagacious'
 
@@ -39,10 +41,16 @@ export function printLogo () {
  * @param {string} path
  * @returns
  */
-export function isGitRepo (path: string): Promise<any> {
+export async function isGitRepo (path: string): Promise<any> {
+  const execPath = resolve('.')
+  const gitExecPath = `${os.tmpdir()}/.sagacious/GitExecPath`
+  await fs.mkdirp(gitExecPath)
+  process.chdir(gitExecPath)
+  await execa('git', ['init'])
   return execa('git', ['remote', 'show', path])
     .then(() => true)
     .catch(() => false)
+    .finally(() => process.chdir(execPath))
 }
 
 /**
