@@ -100,13 +100,48 @@ class Cli {
           })
       })
       .command(['clean'], 'clean your template dir', async _yargs => {
-        _yargs.parse()
-        printLogo()
-        const ora = Ora('start clear')
-          .start()
-        await this.templateManager.clear()
-        ora.succeed(greenBright('clean over'))
-        process.exit()
+        _yargs
+          .option('a', {
+            alias: 'all',
+            describe: 'clean all',
+            type: 'boolean',
+          })
+        if (yargs.parse().all) {
+          printLogo()
+          const ora = Ora('start clear')
+            .start()
+          await this.templateManager.clear()
+          ora.succeed(greenBright('clean over'))
+          process.exit()
+        } else {
+          const targets = yargs.parse()._.slice(1)
+          if (targets.length === 0) return _yargs.showHelp()
+          printLogo()
+          for (let i = 0; i < targets.length; i++) {
+            const target = targets[i]
+            const [name, version] = target.split('@')
+            const templates: Template[] = this.templateManager.conf.get('templates')
+            const targetTemplates = templates.filter(template => template.name === name && (!version || template.versions.find(o => o.version === version)))
+            if (targetTemplates.length === 0) {
+              Ora(yellowBright(`can't find template: ${target}`))
+                .warn()
+            }
+            let [targetTemplate] = targetTemplates
+            if (targetTemplates.length > 1) {
+              targetTemplate = (await inquirer.prompt({
+                type: 'list',
+                name: 'value',
+                message: greenBright(`template ${name} ${version ? `version ${version} ` : ''}discover more types of template, you should choose a type`),
+                default: targetTemplates[0].type,
+                choices: targetTemplates.map(o => ({
+                  name: o.type,
+                  value: o,
+                })),
+              })).value
+            }
+            console.log(targetTemplate)
+          }
+        }
       })
       .command(['check'], 'check your config file', _yargs => {
         _yargs.parse()

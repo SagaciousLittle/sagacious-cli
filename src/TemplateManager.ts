@@ -53,20 +53,39 @@ export default class TemplateManager {
     this.conf = new Conf({
       cwd: TEMPLATE_HOME,
     })
-    if (!this.conf.get('templates')) this.conf.set('templates', [])
+    const templates: Template[] = this.conf.get('templates')
+    if (!templates) {
+      this.clear(true)
+      this.conf.set('templates', [])
+    } else {
+      templates.forEach(({ type, name, versions }) => {
+        versions.forEach(v => {
+          if (!v.finish) this.remove(type, name, v.version)
+        })
+      })
+    }
   }
   initDefault () {
     
   }
-  clear () {
-    return del(this.TEMPLATE_HOME, {
+  clear (sync = false) {
+    const fn = sync ? del.sync : del
+    return fn(this.TEMPLATE_HOME, {
       force: true,
     })
   }
   async remove (type: TemplateType, name: string, version?: string) {
-    let targetDir = `${this.TEMPLATE_HOME}/${type}/te-${name}`
-    if (version) targetDir += `/v-${version}`
-    await del(targetDir)
+    const homeDir = `${this.TEMPLATE_HOME}/${type}/te-${name}`
+    let targetDir = homeDir
+    if (version) {
+      const files = await fs.readdir(homeDir)
+      if (files.length > 0 && (files[0] !== `v-${version}`)) {
+        targetDir += `/v-${version}`
+      }
+    }
+    await del(targetDir, {
+      force: true,
+    })
     this.removeConf(type, name, version)
   }
   addMore (options: AddOption[]) {
