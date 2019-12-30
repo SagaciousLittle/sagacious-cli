@@ -119,7 +119,7 @@ class Cli {
           for (let i = 0; i < targets.length; i++) {
             const target = targets[i]
             const [name, version] = target.split('@')
-            const templates: Template[] = this.templateManager.conf.get('templates')
+            const templates: Template[] = this.templateManager.getAll()
             let targetTemplates = templates.filter(template => template.name === name && (!version || template.versions.find(o => o.version === version)))
             if (targetTemplates.length === 0) {
               Ora(yellowBright(`can't find template: ${target}`))
@@ -146,7 +146,7 @@ class Cli {
       })
       .command(['check'], 'check your config file', _yargs => {
         _yargs.parse()
-        const templates = (this.templateManager.conf.get('templates') as Template[]).filter(template => {
+        const templates = (this.templateManager.getAll() as Template[]).filter(template => {
           template.versions = template.versions.filter(v => v.finish)
           return template.versions.length > 0
         })
@@ -167,6 +167,10 @@ class Cli {
     this._args = _args
   }
   async create (appName?: string) {
+    printLogo()
+    const templates = this.templateManager.getAll()
+    if (templates.length === 0) return Ora(yellowBright('please add a template first'))
+      .warn()
     console.log(blueBright(`Sag CLI v${this.version}`))
     const dirName = process.cwd()
       .split('\\')
@@ -176,35 +180,30 @@ class Cli {
       {
         type: 'input',
         name: 'appName',
-        message: `✨  ${greenBright(`please enter your project name (${dirName})`)}`,
+        message: `✨  ${greenBright('please enter your project name')}`,
+        default: dirName,
       },
     ])
     if (!res.appName || !res.appName.trim()) res.appName = dirName
-    inquirer
-      .prompt([
-        {
-          type: 'list',
-          name: 'template',
-          message: 'please select the template you want to use.',
-          choices: [
-            {
-              name: `namea (${yellowBright('router')}, ${yellowBright('eslint')})`,
-              value: 'valuea',
-            },
-            {
-              name: 'nameb',
-              value: 'valueb',
-            },
-            {
-              name: 'namec',
-              value: 'valuec',
-            },
-          ],
-        },
-      ])
-      .then(res => {
-        console.log(res)
-      })
+    const target: Template = (await inquirer.prompt({
+      type: 'list',
+      message: `✨  ${greenBright('please choose your template')}`,
+      choices: templates.map(template => ({
+        name: `${template.name}${templates.filter(t => t.name === template.name).length > 1 ? `(${template.type})` : ''}`,
+        value: template,
+      })),
+      name: 'targetTemplate',
+    })).targetTemplate
+    const version = target.versions.length === 1 ? target.versions[0].version : (await inquirer.prompt({
+      type: 'list',
+      message: `✨  ${greenBright('please choose your version')}`,
+      choices: target.versions.map(v => ({
+        name: v.version,
+        value: v.version,
+      })),
+      name: 'targetVersion',
+    })).targetVersion
+    await this.templateManager.clone(target.type, target.name, version, process.cwd())
   }
 }
 

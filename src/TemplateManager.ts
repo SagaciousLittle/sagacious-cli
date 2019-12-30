@@ -47,13 +47,17 @@ interface Add {
 
 export default class TemplateManager {
   conf: Conf
+  ignores = [
+    'node_modules',
+  ]
+  tmpPath = `${os.tmpdir()}/.sagacious/template`
   private git = Git()
   constructor (private TEMPLATE_HOME: string = `${os.homedir()}/.sagacious/cli`) {
     if (!fs.existsSync(TEMPLATE_HOME)) fs.mkdirpSync(TEMPLATE_HOME)
     this.conf = new Conf({
       cwd: TEMPLATE_HOME,
     })
-    const templates: Template[] = this.conf.get('templates')
+    const templates = this.getAll()
     if (!templates) {
       this.clear(true)
       this.conf.set('templates', [])
@@ -137,25 +141,46 @@ export default class TemplateManager {
     }
   }
   addGit (option: AddOption) {
-    const init = async () => (/\S+\.git/.test(option.name) ? (option.path.split('\/')
-      .pop() || '').replace('\.git', '') : option.name)
+    let { name } = option
+    const init = async () => {
+      if (/\S+\.git/.test(option.name)) {
+        name = (option.path.split('\/')
+          .pop() || '').replace('\.git', '')
+      }
+      return name
+    }
     const exec = async (targetDir: string) => {
-      this.git.cwd(targetDir)
+      let {
+        tmpPath,
+      } = this
+      await del(tmpPath, { force: true })
+      await fs.mkdirp(tmpPath)
+      this.git.cwd(tmpPath)
       await this.git.clone(option.path)
+      tmpPath = `${tmpPath}/${name}`
+      const files = await fs.readdir(tmpPath)
+      await Promise.all(files.map(f => fs.copy(`${tmpPath}/${f}`, `${targetDir}/${f}`)))
     }
     return { init, exec }
   }
   addNpm (option: AddOption) {
-    const init = async () => {
-      const [name] = option.name.split('@')
-      return name
-    }
+    const [name] = option.name.split('@')
+    const init = async () => name
     const exec = async (targetDir: string) => {
+      targetDir = resolve(targetDir)
+      let {
+        tmpPath,
+      } = this
       const execPath = process.cwd()
-      process.chdir(resolve(targetDir))
+      await del(tmpPath, { force: true })
+      await fs.mkdirp(tmpPath)
+      process.chdir(tmpPath)
       await execa('npm', ['init', '-y'])
       await execa('npm', ['install', option.name])
-      process.chdir(resolve(execPath))
+      tmpPath = `${tmpPath}/node_modules/${name}`
+      const files = (await fs.readdir(tmpPath)).filter(o => !this.ignores.includes(o))
+      await Promise.all(files.map(f => fs.copy(`${tmpPath}/${f}`, `${targetDir}/${f}`)))
+      process.chdir(execPath)
     }
     return { init, exec }
   }
@@ -165,10 +190,7 @@ export default class TemplateManager {
       .split('\\')
       .pop()
     const exec = async (targetDir: string) => {
-      const ignores = [
-        'node_modules',
-      ]
-      const files = (await fs.readdir(templatePath)).filter(o => !ignores.includes(o))
+      const files = (await fs.readdir(templatePath)).filter(o => !this.ignores.includes(o))
       await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetDir}/${f}`)))
     }
     return { init, exec }
@@ -176,7 +198,7 @@ export default class TemplateManager {
   async addConf (type: TemplateType, name: string) {
     let suggestVersion = '1.0.0'
     let [realName, version] = name.split('@') as any
-    const templates: Template[] = this.conf.get('templates')
+    const templates = this.getAll()
     let target = templates.find(o => o.name === realName && o.type === type)
     if (!target) {
       target = {
@@ -219,8 +241,8 @@ export default class TemplateManager {
     return [version, templates, targetVersion]
   }
   removeConf (type: TemplateType, name: string, version?: string) {
-    const templates: Template[] = this.conf.get('templates')
-    const targetIndex = templates.findIndex(template => template.name === name && template.type === type)
+    const templates = this.getAll()
+    const targetIndex = (templates || []).findIndex(template => template.name === name && template.type === type)
     const target = templates[targetIndex]
     if (!target) return
     if (version) {
@@ -230,5 +252,12 @@ export default class TemplateManager {
     }
     if (!version || target.versions.length === 0) templates.splice(targetIndex, 1)
     this.conf.set('templates', templates)
+  }
+  getAll (): Template[] {
+    return this.conf.get('templates')
+  }
+  async clone (type: TemplateType, name: string, version: string, targetPath: string) {
+    const res = await fs.readdir(`${this.TEMPLATE_HOME}/${type}/te-${name}/v-${version}`)
+    console.log(res, targetPath)
   }
 }
