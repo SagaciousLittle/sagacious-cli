@@ -22,6 +22,7 @@ import {
   PromiseQuene,
   PromiseRaceBy,
   printLogo,
+  printHello,
 } from './Util'
 
 /**
@@ -53,7 +54,7 @@ class Cli {
     const _ = yargs
       .locale('en')
       .usage(greenBright('usage: $0 create <app-name>'))
-      .usage(greenBright('usage: $0 add <template-name> <template-name> ...'))
+      .usage(greenBright('usage: $0 add <npm-package> <git-repository> <local-folder> ...'))
       .alias('v', 'version')
       .alias('h', 'help')
       .example('example', 'example')
@@ -160,6 +161,9 @@ class Cli {
           })
             .join(''))}`)
         })
+      })
+      .command(['hello'], 'say hello to the world', () => {
+        printHello()
       })
       .showHelpOnFail(true)
     const _args = _.parse()

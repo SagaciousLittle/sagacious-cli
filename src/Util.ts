@@ -35,6 +35,32 @@ export function printLogo () {
 }
 
 /**
+ * say hello to the world
+ *
+ * @export
+ */
+export function printHello () {
+  printLogo()
+  console.log(`
+              0  100      00110       
+              0    0000 0   1        
+                0 1   11   10        
+                01       0          
+                1 1111110           
+                01 111110           
+                0000011100          
+                1100 111100         
+                  1110011100         
+                01111000010          
+                0  111110           
+                  0  111110          
+                01 10111110         
+                1  110111111         
+              0   10001111101  10
+  `)
+}
+
+/**
  * Determine if it is a git repository
  *
  * @export
