@@ -257,7 +257,39 @@ export default class TemplateManager {
     return this.conf.get('templates')
   }
   async clone (type: TemplateType, name: string, version: string, targetPath: string) {
-    const res = await fs.readdir(`${this.TEMPLATE_HOME}/${type}/te-${name}/v-${version}`)
-    console.log(res, targetPath)
+    const normalFiles = await fs.readdir(targetPath)
+    if (normalFiles.length === 0 || (
+      await inquirer.prompt({
+        type: 'confirm',
+        message: yellowBright('the current directory is not empty, do you want to continue ?'),
+        name: 'flag',
+        default: false,
+      })
+    ).flag) {
+      let ora = Ora(gray('🐎  start initializing the directory'))
+        .start()
+      const templatePath = `${this.TEMPLATE_HOME}/${type}/te-${name}/v-${version}`
+      const files = await fs.readdir(templatePath)
+      await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetPath}/${f}`)))
+      ora.succeed(greenBright('🐴  initialization is complete, enjoy it'))
+      if (files.includes('package.json') && (
+        await inquirer.prompt({
+          type: 'confirm',
+          message: greenBright('🐎  found that the target template is an npm project, do you need to load the package ?'),
+          name: 'flag',
+          default: true,
+        })
+      ).flag) {
+        console.log('\n')
+        try {
+          await execa('yarn', { stdio: 'inherit' })
+        } catch (e) {
+          await execa('npm', ['install'], { stdio: 'inherit' })
+        }
+        console.log('\n')
+        Ora(greenBright('🐴  package installation is complete, enjoy it'))
+          .succeed()
+      }
+    }
   }
 }
