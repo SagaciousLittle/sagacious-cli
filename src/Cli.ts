@@ -112,7 +112,6 @@ class Cli {
             .start()
           await this.templateManager.clear()
           ora.succeed(greenBright('clean over'))
-          process.exit()
         } else {
           const targets = yargs.parse()._.slice(1)
           if (targets.length === 0) return _yargs.showHelp()
@@ -121,15 +120,14 @@ class Cli {
             const target = targets[i]
             const [name, version] = target.split('@')
             const templates: Template[] = this.templateManager.conf.get('templates')
-            const targetTemplates = templates.filter(template => template.name === name && (!version || template.versions.find(o => o.version === version)))
+            let targetTemplates = templates.filter(template => template.name === name && (!version || template.versions.find(o => o.version === version)))
             if (targetTemplates.length === 0) {
               Ora(yellowBright(`can't find template: ${target}`))
                 .warn()
             }
-            let [targetTemplate] = targetTemplates
             if (targetTemplates.length > 1) {
-              targetTemplate = (await inquirer.prompt({
-                type: 'list',
+              targetTemplates = (await inquirer.prompt({
+                type: 'checkbox',
                 name: 'value',
                 message: greenBright(`template ${name} ${version ? `version ${version} ` : ''}discover more types of template, you should choose a type`),
                 default: targetTemplates[0].type,
@@ -139,8 +137,11 @@ class Cli {
                 })),
               })).value
             }
-            console.log(targetTemplate)
+            await Promise.all(targetTemplates.map(target => this.templateManager.remove(target.type, name, version)))
+            Ora('clean over')
+              .succeed()
           }
+          process.exit()
         }
       })
       .command(['check'], 'check your config file', _yargs => {
