@@ -1,7 +1,7 @@
 {
   "name": "@sagacious/cli",
   "version": "0.0.1",
-  "description": "一个通用的前端脚手架",
+  "description": "a universal template management tool",
   "main": "index.js",
   "scripts": {
     "start": "node bin/sag",
@@ -59,7 +59,12 @@
     "type": "git",
     "url": "git+https://github.com/SagaciousLittle/sagacious-cli.git"
   },
-  "keywords": [],
+  "keywords": [
+    "cli",
+    "template manager",
+    "tool",
+    "app"
+  ],
   "bugs": {
     "url": "https://github.com/SagaciousLittle/sagacious-cli/issues"
   },
