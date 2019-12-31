@@ -164,8 +164,8 @@ export default class TemplateManager {
     return { init, exec }
   }
   addNpm (option: AddOption) {
-    let [name, version] = option.name.split('@')
-    if (!name) name = version
+    let [name, scopedName] = option.name.split('@')
+    if (!name) name = `@${scopedName}`
     const init = async () => name
     const exec = async (targetDir: string) => {
       targetDir = resolve(targetDir)
