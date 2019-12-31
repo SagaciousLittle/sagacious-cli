@@ -1,6 +1,6 @@
 {
   "name": "@sagacious/cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "a universal template management tool",
   "main": "index.js",
   "scripts": {
