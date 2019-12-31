@@ -198,7 +198,11 @@ export default class TemplateManager {
   }
   async addConf (type: TemplateType, name: string) {
     let suggestVersion = '1.0.0'
-    let [realName, version] = name.split('@') as any
+    let [realName, version, scopedVersion] = name.split('@') as any
+    if (!realName) {
+      realName = `@${version}`
+      version = scopedVersion
+    }
     const templates = this.getAll()
     let target = templates.find(o => o.name === realName && o.type === type)
     if (!target) {
