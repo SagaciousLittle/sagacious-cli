@@ -100,11 +100,11 @@ class Cli {
             }))
           })
       })
-      .command(['clean'], 'clean your template dir', async _yargs => {
+      .command(['remove', 'r'], 'remove your template dir', async _yargs => {
         _yargs
           .option('a', {
             alias: 'all',
-            describe: 'clean all',
+            describe: 'remove all',
             type: 'boolean',
           })
         if (yargs.parse().all) {
@@ -112,14 +112,18 @@ class Cli {
           const ora = Ora('start clear')
             .start()
           await this.templateManager.clear()
-          ora.succeed(greenBright('clean over'))
+          ora.succeed(greenBright('remove over'))
         } else {
           const targets = yargs.parse()._.slice(1)
           if (targets.length === 0) return _yargs.showHelp()
           printLogo()
           for (let i = 0; i < targets.length; i++) {
             const target = targets[i]
-            const [name, version] = target.split('@')
+            let [name, version, scopedVersion] = target.split('@')
+            if (!name) {
+              name = `@${version}`
+              version = scopedVersion
+            }
             const templates: Template[] = this.templateManager.getAll()
             let targetTemplates = templates.filter(template => template.name === name && (!version || template.versions.find(o => o.version === version)))
             if (targetTemplates.length === 0) {
@@ -139,7 +143,7 @@ class Cli {
               })).value
             }
             await Promise.all(targetTemplates.map(target => this.templateManager.remove(target.type, name, version)))
-            Ora('clean over')
+            Ora('remove over')
               .succeed()
           }
           process.exit()
@@ -207,7 +211,7 @@ class Cli {
       })),
       name: 'targetVersion',
     })).targetVersion
-    await this.templateManager.clone(target.type, target.name, version, process.cwd())
+    await this.templateManager.clone(appName || '', target.type, target.name, version, process.cwd())
   }
 }
 

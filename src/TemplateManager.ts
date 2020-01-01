@@ -42,7 +42,7 @@ export interface AddOption {
 
 interface Add {
   init: () => Promise<string | undefined>
-  exec: (targetDir: string) => Promise<void>
+  exec: (targetDir: string) => Promise<string[]>
 }
 
 export default class TemplateManager {
@@ -131,7 +131,7 @@ export default class TemplateManager {
         .start()
       const targetDir = `${this.TEMPLATE_HOME}/${type}/te-${name}/v-${version}`
       await fs.mkdirp(targetDir)
-      await exec(targetDir)
+      const files = await exec(targetDir)
       target.finish = true
       this.conf.set('templates', templates)
       ora.succeed(greenBright(`template ${name} version ${version} is added`))
@@ -160,6 +160,7 @@ export default class TemplateManager {
       tmpPath = `${tmpPath}/${name}`
       const files = await fs.readdir(tmpPath)
       await Promise.all(files.map(f => fs.copy(`${tmpPath}/${f}`, `${targetDir}/${f}`)))
+      return files
     }
     return { init, exec }
   }
@@ -182,6 +183,7 @@ export default class TemplateManager {
       const files = (await fs.readdir(tmpPath)).filter(o => !this.ignores.includes(o))
       await Promise.all(files.map(f => fs.copy(`${tmpPath}/${f}`, `${targetDir}/${f}`)))
       process.chdir(execPath)
+      return files
     }
     return { init, exec }
   }
@@ -193,6 +195,7 @@ export default class TemplateManager {
     const exec = async (targetDir: string) => {
       const files = (await fs.readdir(templatePath)).filter(o => !this.ignores.includes(o))
       await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetDir}/${f}`)))
+      return files
     }
     return { init, exec }
   }
@@ -261,7 +264,7 @@ export default class TemplateManager {
   getAll (): Template[] {
     return this.conf.get('templates')
   }
-  async clone (type: TemplateType, name: string, version: string, targetPath: string) {
+  async clone (appName: string, type: TemplateType, name: string, version: string, targetPath: string) {
     const normalFiles = await fs.readdir(targetPath)
     if (normalFiles.length === 0 || (
       await inquirer.prompt({
@@ -275,6 +278,7 @@ export default class TemplateManager {
         .start()
       const templatePath = `${this.TEMPLATE_HOME}/${type}/te-${name}/v-${version}`
       const files = await fs.readdir(templatePath)
+      if (files.includes('package.json')) await this.handlePackageJson(`${templatePath}/package.json`, { name: appName, version, private: true })
       await Promise.all(files.map(f => fs.copy(`${templatePath}/${f}`, `${targetPath}/${f}`)))
       ora.succeed(greenBright('🐴  initialization is complete, enjoy it'))
       if (files.includes('package.json') && (
@@ -285,16 +289,28 @@ export default class TemplateManager {
           default: true,
         })
       ).flag) {
-        console.log('\n')
         try {
           await execa('yarn', { stdio: 'inherit' })
         } catch (e) {
           await execa('npm', ['install'], { stdio: 'inherit' })
         }
-        console.log('\n')
         Ora(greenBright('🐴  package installation is complete, enjoy it'))
           .succeed()
       }
     }
+  }
+  async handlePackageJson (target: string, attrs = {}) {
+    const ignoreKeys = [
+      'bundleDependencies',
+    ]
+    const conf = await fs.readJson(target)
+    Object.keys(conf)
+      .forEach(k => {
+        if (k.startsWith('_')) delete conf[k]
+        if (ignoreKeys.includes(k)) delete conf[k]
+      })
+    await fs.writeJson(target, { ...conf, ...attrs }, {
+      spaces: 2,
+    })
   }
 }
