@@ -44,7 +44,7 @@
     "rollup-plugin-eslint": "^7.0.0",
     "rollup-plugin-json": "^4.0.0",
     "semver": "^7.1.1",
-    "simple-git": "^1.128.0",
+    "simple-git": "^3.5.0",
     "ts-jest": "^24.1.0",
     "ts-node": "^8.5.0",
     "typescript": "^3.7.2",
